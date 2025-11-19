@@ -7,8 +7,8 @@ import os
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--package', type=str, required=True)
-    parser.add_argument('--source', type=str, required=True)
+    parser.add_argument('--package', type=str)
+    parser.add_argument('--source', type=str)
     parser.add_argument('--test-repo', action='store_true')
     parser.add_argument('--tree', action='store_true')
 
