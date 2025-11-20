@@ -16,14 +16,14 @@ def main():
         args = parser.parse_args()
 
         if not args.package or not args.package.strip():
-            raise ValueError("Package name cannot be empty")
+            raise ValueError("Имя пакета не может быть пустым")
 
         if not args.source or not args.source.strip():
-            raise ValueError("Source cannot be empty")
+            raise ValueError("Источник не может быть пустым")
 
         if args.test_repo and not args.source.startswith(('http://', 'https://')):
             if not os.path.exists(args.source):
-                raise FileNotFoundError(f"Source file not found: {args.source}")
+                raise FileNotFoundError(f"Исходный файл не найден: {args.source}")
 
         print("Конфигурация приложения:")
         print(f"  Пакет: {args.package}")
@@ -32,7 +32,7 @@ def main():
         print(f"  Режим дерева: {args.tree}")
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Ошибка: {e}")
         sys.exit(1)
 
 
