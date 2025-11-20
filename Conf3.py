@@ -144,3 +144,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+#python Conf3.py --package 'express' --source 'https://registry.npmjs.org/'
+#python Conf3.py --package 'A' --source 'test.txt'
