@@ -46,22 +46,32 @@ def load_test_graph(file_path):
         return json.load(f)
 
 
-def build_dependency_graph_dfs(start_package, source_type, source, visited=None, current_path=None):
+def build_dependency_graph_dfs(start_package, source_type, source, visited=None, current_path=None, cycles=None):
     if visited is None:
         visited = set()
     if current_path is None:
-        current_path = set()
+        current_path = []
+    if cycles is None:
+        cycles = []
 
     # Обнаружение циклических зависимостей
     if start_package in current_path:
-        print(f"Cycle detected: {' -> '.join(current_path)} -> {start_package}")
-        return {}
+        cycle_start_index = current_path.index(start_package)
+        cycle = current_path[cycle_start_index:] + [start_package]
+        cycle_str = " -> ".join(cycle)
+
+        # Добавляем цикл в список, если его еще нет
+        if cycle_str not in cycles:
+            cycles.append(cycle_str)
+            print(f"Cycle detected: {cycle_str}")
+
+        return {}, cycles
 
     if start_package in visited:
-        return {}
+        return {}, cycles
 
     visited.add(start_package)
-    current_path.add(start_package)
+    current_path.append(start_package)
 
     graph = {}
 
@@ -76,15 +86,17 @@ def build_dependency_graph_dfs(start_package, source_type, source, visited=None,
 
         # Рекурсивно обходим все зависимости
         for dep in dependencies:
-            sub_graph = build_dependency_graph_dfs(dep, source_type, source, visited, current_path.copy())
+            sub_graph, sub_cycles = build_dependency_graph_dfs(dep, source_type, source, visited, current_path.copy(),
+                                                               cycles)
             graph.update(sub_graph)
+            cycles.extend([c for c in sub_cycles if c not in cycles])
 
     except Exception as e:
         print(f"Error processing package {start_package}: {e}")
         graph[start_package] = []
 
-    current_path.remove(start_package)
-    return graph
+    current_path.pop()
+    return graph, cycles
 
 
 def main():
@@ -127,7 +139,7 @@ def main():
                 source_type = "registry"
 
         # Построение графа зависимостей с помощью DFS с рекурсией
-        dependency_graph = build_dependency_graph_dfs(args.package, source_type, graph_source)
+        dependency_graph, cycles = build_dependency_graph_dfs(args.package, source_type, graph_source)
 
         # Вывод результатов
         print("\nDependency graph:")
@@ -137,6 +149,14 @@ def main():
             else:
                 print(f"{package} -> No dependencies")
 
+        # Вывод циклических зависимостей
+        if cycles:
+            print("\nCyclic dependencies found:")
+            for i, cycle in enumerate(cycles, 1):
+                print(f"  Cycle {i}: {cycle}")
+        else:
+            print("\nNo cyclic dependencies found")
+
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
@@ -144,6 +164,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-#python Conf3.py --package 'express' --source 'https://registry.npmjs.org/'
-#python Conf3.py --package 'A' --source 'test.txt'
