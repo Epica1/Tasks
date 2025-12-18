@@ -165,4 +165,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-#python Conf2_3.py --package 'A' --source 'test.txt' --test-repo
+#python Config2_3.py --package 'A' --source 'test2.txt' --test-repo
