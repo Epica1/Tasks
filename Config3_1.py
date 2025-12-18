@@ -1,6 +1,6 @@
 import sys
+import json
 import argparse
-import struct
 
 
 class Assembler:
@@ -25,7 +25,7 @@ class Assembler:
                     left = left.strip()
                     right = right.strip()
 
-                    # 1. Загрузка константы
+                    # 1.Загрузка константы
                     if right.isdigit():
                         match = self._parse_reg(left)
                         if match:
@@ -112,73 +112,69 @@ class Assembler:
                     return addr
         return None
 
-    def assemble_to_binary(self, intermediate):
-        binary_data = bytearray()
-
-        for instr in intermediate:
-            opcode = instr['opcode']
-
-            if instr['type'] == 'load_const':
-                const = instr['const']
-                dest_addr = instr['dest_addr']
-                value = (dest_addr << 34) | (const << 6) | opcode
-                binary_data.extend(struct.pack('<Q', value)[:5])
-
-            elif instr['type'] == 'read_mem':
-                dest_addr = instr['dest_addr']
-                base_addr = instr['base_addr']
-                offset = instr['offset']
-                value = (offset << 18) | (base_addr << 12) | (dest_addr << 6) | opcode
-                binary_data.extend(struct.pack('<I', value)[:4])
-
-            elif instr['type'] == 'write_mem':
-                mem_addr = instr['mem_addr']
-                src_addr = instr['src_addr']
-                value = (src_addr << 30) | (mem_addr << 6) | opcode
-                binary_data.extend(struct.pack('<Q', value)[:5])
-
-            elif instr['type'] == 'abs':
-                dest_addr = instr['dest_addr']
-                base_addr = instr['base_addr']
-                value = (base_addr << 12) | (dest_addr << 6) | opcode
-                binary_data.extend(struct.pack('<I', value)[:3])
-
-        return bytes(binary_data)
-
     @staticmethod
     def format_instruction(instr):
-        opcode = instr['opcode']
-
         if instr['type'] == 'load_const':
-            const = instr['const']
-            dest_addr = instr['dest_addr']
-            value = (dest_addr << 34) | (const << 6) | opcode
-            bytes_hex = ', '.join(f'0x{b:02X}' for b in struct.pack('<Q', value)[:5])
-            return f"A: {opcode}, B: {const}, C: {dest_addr} -> {bytes_hex}"
+            return f"A={instr['opcode']}, B={instr['const']}, C={instr['dest_addr']}"
+        elif instr['type'] == 'read_mem':
+            return f"A={instr['opcode']}, B={instr['dest_addr']}, C={instr['base_addr']}, D={instr['offset']}"
+        elif instr['type'] == 'write_mem':
+            return f"A={instr['opcode']}, B={instr['mem_addr']}, C={instr['src_addr']}"
+        elif instr['type'] == 'abs':
+            return f"A={instr['opcode']}, B={instr['dest_addr']}, C={instr['base_addr']}"
+        return str(instr)
+
+    def encode_instruction(self, instr):
+        if instr['type'] == 'load_const':
+            a = instr['opcode'] & 0x3F
+            b = instr['const'] & 0xFFFFFFF
+            c = instr['dest_addr'] & 0x3F
+
+            value = (c << 34) | (b << 6) | a
+
+            bytes_list = []
+            for i in range(5):
+                bytes_list.append((value >> (i * 8)) & 0xFF)
+            return bytes_list
 
         elif instr['type'] == 'read_mem':
-            dest_addr = instr['dest_addr']
-            base_addr = instr['base_addr']
-            offset = instr['offset']
-            value = (offset << 18) | (base_addr << 12) | (dest_addr << 6) | opcode
-            bytes_hex = ', '.join(f'0x{b:02X}' for b in struct.pack('<I', value)[:4])
-            return f"A: {opcode}, B: {dest_addr}, C: {base_addr}, D: {offset} -> {bytes_hex}"
+            a = instr['opcode'] & 0x3F
+            b = instr['dest_addr'] & 0x3F
+            c = instr['base_addr'] & 0x3F
+            d = instr['offset'] & 0x3FFF
+
+            value = (d << 18) | (c << 12) | (b << 6) | a
+
+            bytes_list = []
+            for i in range(4):
+                bytes_list.append((value >> (i * 8)) & 0xFF)
+            return bytes_list
 
         elif instr['type'] == 'write_mem':
-            mem_addr = instr['mem_addr']
-            src_addr = instr['src_addr']
-            value = (src_addr << 30) | (mem_addr << 6) | opcode
-            bytes_hex = ', '.join(f'0x{b:02X}' for b in struct.pack('<Q', value)[:5])
-            return f"A: {opcode}, B: {mem_addr}, C: {src_addr} -> {bytes_hex}"
+            a = instr['opcode'] & 0x3F
+            b = instr['mem_addr'] & 0xFFFFFF
+            c = instr['src_addr'] & 0x3F
+
+            value = (c << 30) | (b << 6) | a
+
+            bytes_list = []
+            for i in range(5):
+                bytes_list.append((value >> (i * 8)) & 0xFF)
+            return bytes_list
 
         elif instr['type'] == 'abs':
-            dest_addr = instr['dest_addr']
-            base_addr = instr['base_addr']
-            value = (base_addr << 12) | (dest_addr << 6) | opcode
-            bytes_hex = ', '.join(f'0x{b:02X}' for b in struct.pack('<I', value)[:3])
-            return f"A: {opcode}, B: {dest_addr}, C: {base_addr} -> {bytes_hex}"
+            a = instr['opcode'] & 0x3F  # 6 бит
+            b = instr['dest_addr'] & 0x3F  # 6 бит
+            c = instr['base_addr'] & 0x3F  # 6 бит
 
-        return str(instr)
+            value = (c << 12) | (b << 6) | a
+
+            bytes_list = []
+            for i in range(3):
+                bytes_list.append((value >> (i * 8)) & 0xFF)
+            return bytes_list
+
+        return []
 
 
 def main():
@@ -195,22 +191,24 @@ def main():
 
         assembler = Assembler()
         intermediate = assembler.parse_high_level(source_content)
-        binary_code = assembler.assemble_to_binary(intermediate)
-        num_commands = len(intermediate)
 
         if args.test:
-            print("Результат ассемблирования:")
+            print("Внутреннее представление программы:")
             print("=" * 50)
             for i, instr in enumerate(intermediate):
-                print(f"Инструкция {i}: {assembler.format_instruction(instr)}")
+                print(f"Команда {i}: {assembler.format_instruction(instr)}")
+
+                bytes_repr = assembler.encode_instruction(instr)
+                hex_bytes = [f"0x{b:02X}" for b in bytes_repr]
+                print(f"Байтовое представление: ({', '.join(hex_bytes)})")
+                print()
             print("=" * 50)
-            print(f"Число ассемблированных команд: {num_commands}")
+            print(f"Всего команд: {len(intermediate)}")
         else:
-            with open(args.output_file, 'wb') as f:
-                f.write(binary_code)
-            print(f"Бинарный код сохранен в {args.output_file}")
-            print(f"Размер файла: {len(binary_code)} байт")
-            print(f"Число ассемблированных команд: {num_commands}")
+            with open(args.output_file, 'w', encoding='utf-8') as f:
+                json.dump(intermediate, f, indent=2)
+            print(f"Промежуточное представление сохранено в {args.output_file}")
+            print(f"Всего команд: {len(intermediate)}")
 
     except FileNotFoundError:
         print(f"Ошибка: файл {args.input_file} не найден")
@@ -223,5 +221,4 @@ def main():
 if __name__ == '__main__':
     main()
 
-#python Conf3_2.py program.txt output.bin --test
-#python Conf3_2.py program.txt output.bin
+#python Config3_1.py program3.txt output.bin --test
