@@ -221,4 +221,4 @@ def main():
 if __name__ == '__main__':
     main()
 
-#python Config3_1.py program.txt output.bin --test
+#python Conf3_1.py program.txt output.bin --test
